@@ -1,5 +1,5 @@
 /**
- * Created by evechee on 2017/9/8.
+ * Created by evechee on 2017/9/19.
  */
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +10,8 @@ let conf = {
     replaceConsole: true,
     dateFormat: 'YYYY-MM-DD hh:mm:ss',
     confjson: './clog_config.json',
-    mypath: ''
+    mypath: './logdir',
+    maxSave: 30
 };
 
 let custom_config = require(conf.confjson);
@@ -23,31 +24,31 @@ function configuration(obj) {
     return conf
 }
 
-if (conf.replaceConsole){
+if (conf.replaceConsole) {
     global.console.error = consoleError
 }
 
+
 function writeFs(obj) {
-    console.log(obj)
     checkDate(conf.mypath);
 
     let ndate = `${clog_config.today}-${clog_config.numbering}`;
 
-    let url = conf.mypath ? `${conf.mypath}-${custom_config.today}-${custom_config.numbering}.log` : `./logdir/${ndate}.log`;
-    let purl = conf.mypath ? path.join(cwd, url) : path.join(__dirname, url);
+    let url = conf.mypath !== './logdir' ? `${conf.mypath}/${custom_config.today}-${custom_config.numbering}.log` : `./logdir/${ndate}.log`;
+    let purl = conf.mypath !== './logdir' ? path.join(cwd, url) : path.join(__dirname, url);
 
     obj.lv = obj.lv ? obj.lv : 'INFO';
     if (conf.lv !== 'ALL' && obj.lv !== conf.lv) return false;
     let content;
-    if(obj.lv === 'ERROR') {
+    if (obj.lv === 'ERROR') {
         if (obj.content instanceof Object) {
             try {
                 content = obj.content.stack
-            }catch(e) {
+            } catch (e) {
                 content = obj.content
             }
         } else {
-            content ='Clog 提醒您该错误不是一个标准的错误对象 请手动检查';
+            content = 'Clog 提醒您该错误不是一个标准的错误对象 请手动检查';
         }
     } else {
         content = obj.content
@@ -55,6 +56,7 @@ function writeFs(obj) {
 
     let text = `\n[${conFormat(conf.dateFormat)}] LV:[${obj.lv}] ${content}`;
     if (!fs.existsSync(purl)) {
+        console.log(purl)
         fs.writeFile(purl, text, err => {
             console.log(err);
             if (err && err.code === 'ENOENT') {
@@ -92,7 +94,7 @@ function mkdir(obj, callback) {
 }
 function fmkdir(arr, num, file) {
     if (num < arr.length) {
-        let url =  conf.mypath ? path.join(cwd, arr[num]) : path.join(__dirname, arr[num]);
+        let url = conf.mypath !== './logdir' ? path.join(cwd, arr[num]) : path.join(__dirname, arr[num]);
         !fs.existsSync(url) && fs.mkdir(url, err => {
             if (err) return console.error(err);
             num++;
@@ -155,6 +157,25 @@ function checkSize(furl, custom) {
     return true
 }
 
+function rdDir(_path = conf.mypath, bl = conf.mypath !== './logdir' ? 1 : 0) {
+    fs.readdir(path.join(!bl ? __dirname : cwd, _path), (err, files) => {
+        if (err) return console.log(err);
+        let nowTime = Date.parse(new Date(custom_config.today))
+        for (let i = 0, val; val = files[i++];) {
+            let str = val.substring(0, val.lastIndexOf('-'));
+            let time = (nowTime - Date.parse(new Date(str))) / 1000 / 60 / 60 / 24;
+            if (time > conf.maxSave) rmDir(`${conf.mypath || './logdir'}/${val}`, conf.mypath !== './logdir' ? 1 : 0 );
+        }
+    });
+}
+
+function rmDir(_path, bl) {
+    fs.unlink(path.join(!bl ? __dirname : cwd, _path), function (err) {
+        if (err) return;
+        console.log(_path + '文件删除成功');
+    })
+}
+
 function checkDate(custom) {
     let ndate = conFormat('YYYY-MM-DD');
     if (custom) {
@@ -194,5 +215,6 @@ process.on('uncaughtException', function (err) {
 module.exports = {
     log: writeFs,
     use: cuse,
-    configuration
+    configuration,
+    rdDir
 };
