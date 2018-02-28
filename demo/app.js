@@ -12,9 +12,12 @@ var app = express();
 
 const Clog = require('./fs_m');
 Clog.configuration({
-    confjson: path.join(__dirname, './aaa.json'),
-    mypath: './logfile/clog'
+    replaceConsole: true,
+    mypath: './logfile',
+    confjson: path.join(__dirname, './clog.json'),
+    maxSave: 10
 });
+Clog.rdDir();
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
